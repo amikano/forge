@@ -28,6 +28,7 @@ import forge.util.Localizer;
 import org.apache.commons.lang3.StringUtils;
 
 import java.util.Arrays;
+import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 
@@ -63,21 +64,21 @@ public class DiscoverEffect extends SpellAbilityEffect {
                 exiled.add(c);
                 if (!c.isLand() && c.getCMC() <= num) {
                     found = c;
-                    if (sa.hasParam("RememberDiscovered"))
+                    if (sa.hasParam("RememberDiscovered")) {
                         host.addRemembered(c);
+                    }
                     break;
-                } else {
-                    rest.add(c);
                 }
+                rest.add(c);
             }
 
-            if (exiled.size() > 0) {
-                game.getAction().reveal(exiled, p, false);
-            }
+            game.getAction().reveal(exiled, p, false);
 
             changeZone(exiled, ZoneType.Exile, game, sa);
 
             // Cast it without paying its mana cost or put it into your hand.
+            Map<String, Object> params = new HashMap<>();
+            params.put("Card", found);
             if (found != null) {
                 String prompt = Localizer.getInstance().getMessage("lblDiscoverChoice",
                         CardTranslation.getTranslatedName(found.getName()));
@@ -85,7 +86,7 @@ public class DiscoverEffect extends SpellAbilityEffect {
                 List<String> options =
                         Arrays.asList(StringUtils.capitalize(Localizer.getInstance().getMessage("lblCast")),
                                 StringUtils.capitalize(Localizer.getInstance().getMessage("lblHandZone")));
-                final boolean play = p.getController().confirmAction(sa, null, prompt, options, found, null);
+                final boolean play = p.getController().confirmAction(sa, null, prompt, options, found, params);
                 boolean cancel = false;
 
                 if (play) {

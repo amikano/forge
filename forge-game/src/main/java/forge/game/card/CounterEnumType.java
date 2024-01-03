@@ -60,6 +60,8 @@ public enum CounterEnumType {
     BORE("BORE", 98, 47, 34),
 
     BOUNTY("BOUNT", 255, 158, 0),
+    
+    BRAIN("BRAIN", 197, 62, 212),
 
     BRIBERY("BRIBE", 172, 201, 235),
 
@@ -424,6 +426,8 @@ public enum CounterEnumType {
     EXPERIENCE("EXP"),
 
     POISON("POISN"),
+
+    RAD("RAD"),
 
     TICKET("TICKET"),
 

@@ -17,13 +17,7 @@
  */
 package forge.ai;
 
-import java.util.ArrayList;
-import java.util.Arrays;
-import java.util.Collection;
-import java.util.Collections;
-import java.util.List;
-import java.util.Map;
-import java.util.Set;
+import java.util.*;
 
 import forge.game.cost.*;
 import org.apache.commons.lang3.StringUtils;
@@ -36,7 +30,6 @@ import com.google.common.collect.Lists;
 import com.google.common.collect.Multimap;
 
 import forge.ai.AiCardMemory.MemorySet;
-import forge.ai.ability.ChooseGenericEffectAi;
 import forge.ai.ability.ProtectAi;
 import forge.ai.ability.TokenAi;
 import forge.card.CardStateName;
@@ -296,7 +289,7 @@ public class ComputerUtil {
         SpellAbility newSA = sa.copyWithNoManaCost();
         newSA.setActivatingPlayer(ai, true);
 
-        if (!CostPayment.canPayAdditionalCosts(newSA.getPayCosts(), newSA) || !ComputerUtilMana.canPayManaCost(newSA, ai, 0, false)) {
+        if (!CostPayment.canPayAdditionalCosts(newSA.getPayCosts(), newSA, false) || !ComputerUtilMana.canPayManaCost(newSA, ai, 0, false)) {
             return false;
         }
 
@@ -516,7 +509,7 @@ public class ComputerUtil {
                 }
             }
 
-            if (ComputerUtilCost.isFreeCastAllowedByPermanent(ai, "Discard")) {
+            if (activate != null && ComputerUtilCost.isFreeCastAllowedByPermanent(ai, "Discard")) {
                 // Dream Halls allows to discard 1 worthless card to cast 1 expensive for free
                 // Do it even if nothing marked for discard in hand, if it's worth doing!
                 int mana = ComputerUtilMana.getAvailableManaEstimate(ai, false);
@@ -689,6 +682,27 @@ public class ComputerUtil {
         }
 
         CardLists.sortByPowerAsc(typeList);
+        if (sa.isCraft()) {
+            // remove anything above 3 CMC so that high tier stuff doesn't get exiled with this
+            CardCollection toRemove = new CardCollection();
+            for (Card exileTgt : typeList) {
+                if (exileTgt.isInPlay() && exileTgt.getCMC() >= 3) toRemove.add(exileTgt);
+            }
+            typeList.removeAll(toRemove);
+            if (typeList.size() < amount) return null;
+
+            // FIXME: This is suboptimal, maybe implement a single comparator that'll take care of all of this?
+            CardLists.sortByCmcDesc(typeList);
+            Collections.reverse(typeList);
+            typeList.sort(new Comparator<Card>() {
+                @Override
+                public int compare(final Card a, final Card b) {
+                    if (!a.isInPlay() && b.isInPlay()) return -1;
+                    else if (!b.isInPlay() && a.isInPlay()) return 1;
+                    else return 0;
+                }
+            }); // something that's not on the battlefield should come first
+        }
         final CardCollection exileList = new CardCollection();
 
         for (int i = 0; i < amount; i++) {
@@ -726,7 +740,7 @@ public class ComputerUtil {
         all.removeAll(exclude);
         CardCollection typeList = CardLists.getValidCards(all, type.split(";"), activate.getController(), activate, sa);
 
-        typeList = CardLists.filter(typeList, Presets.UNTAPPED);
+        typeList = CardLists.filter(typeList, Presets.CAN_TAP);
 
         if (tap) {
             typeList.remove(activate);
@@ -754,14 +768,13 @@ public class ComputerUtil {
 
         CardCollection all = new CardCollection(ai.getCardsIn(ZoneType.Battlefield));
         all.removeAll(exclude);
-        CardCollection typeList =
-                CardLists.getValidCards(all, type.split(";"), activate.getController(), activate, sa);
+        CardCollection typeList = CardLists.getValidCards(all, type.split(";"), activate.getController(), activate, sa);
 
         if (sa.hasParam("Crew")) {
             typeList = CardLists.getNotKeyword(typeList, "CARDNAME can't crew Vehicles.");
         }
 
-        typeList = CardLists.filter(typeList, Presets.UNTAPPED);
+        typeList = CardLists.filter(typeList, Presets.CAN_TAP);
 
         if (tap) {
             typeList.remove(activate);
@@ -1162,7 +1175,7 @@ public class ComputerUtil {
             return true;
         }
 
-        if (cardState.hasKeyword(Keyword.RIOT) && ChooseGenericEffectAi.preferHasteForRiot(sa, ai)) {
+        if (cardState.hasKeyword(Keyword.RIOT) && SpecialAiLogic.preferHasteForRiot(sa, ai)) {
             // Planning to choose Haste for Riot, so do this in Main 1
             return true;
         }
@@ -2436,7 +2449,7 @@ public class ComputerUtil {
             return goodChoices;
         }
 
-        Collections.sort(goodChoices, CardLists.TextLenComparator);
+        goodChoices.sort(CardLists.TextLenComparator);
 
         CardLists.sortByCmcDesc(goodChoices);
 

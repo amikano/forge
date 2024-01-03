@@ -593,6 +593,11 @@ public final class StaticAbilityContinuous {
                     int add = AbilityUtils.calculateAmount(hostCard, mhs, stAb);
                     p.addAdditionalOptionalVote(se.getTimestamp(), add);
                 }
+                if (params.containsKey("AdditionalVillainousChoice")) {
+                    String mhs = params.get("AdditionalVillainousChoice");
+                    int add = AbilityUtils.calculateAmount(hostCard, mhs, stAb);
+                    p.addAdditionalVillainousChoices(se.getTimestamp(), add);
+                }
             }
         }
 
@@ -895,8 +900,7 @@ public final class StaticAbilityContinuous {
             }
 
             // add Types
-            if (addTypes != null || removeTypes != null || addAllCreatureTypes
-                    || !remove.isEmpty()) {
+            if (addTypes != null || removeTypes != null || addAllCreatureTypes || !remove.isEmpty()) {
                 affectedCard.addChangedCardTypes(addTypes, removeTypes, addAllCreatureTypes, remove,
                         hostCard.getTimestamp(), stAb.getId(), true, stAb.hasParam("CharacteristicDefining"));
             }

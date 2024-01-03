@@ -276,7 +276,6 @@ public class HumanPlay {
             else if (part instanceof CostExile) {
                 CostExile costExile = (CostExile) part;
 
-                ZoneType from = ZoneType.Graveyard;
                 if ("All".equals(part.getType())) {
                     if (!p.getController().confirmPayment(part, Localizer.getInstance().getMessage("lblDoYouWantExileAllCardYouGraveyard"), sourceAbility)) {
                         return false;
@@ -284,19 +283,18 @@ public class HumanPlay {
 
                     costExile.payAsDecided(p, PaymentDecision.card(p.getCardsIn(ZoneType.Graveyard)), sourceAbility, hcd.isEffect());
                 } else {
-                    from = costExile.getFrom();
-                    CardCollection list;
-                    if (costExile.zoneRestriction != 1) {
-                        list = new CardCollection(p.getGame().getCardsIn(from));
-                    } else {
-                        list = new CardCollection(p.getCardsIn(from));
+                    CardCollection list = new CardCollection();
+                    List<ZoneType> fromZones = costExile.getFrom();
+                    boolean multiFromZones = fromZones.size() > 1;
+                    for (ZoneType from : fromZones) {
+                        list.addAll(costExile.zoneRestriction != 1 ? p.getGame().getCardsIn(from) : p.getCardsIn(from));
                     }
                     list = CardLists.getValidCards(list, part.getType().split(";"), p, source, sourceAbility);
                     final int nNeeded = part.getAbilityAmount(sourceAbility);
                     if (list.size() < nNeeded) {
                         return false;
                     }
-                    if (from == ZoneType.Library) {
+                    if (!multiFromZones && fromZones.get(0).equals(ZoneType.Library)) {
                         if (!p.getController().confirmPayment(part, Localizer.getInstance().getMessage("lblDoYouWantExileNCardsFromYourLibrary", String.valueOf(nNeeded)), sourceAbility)) {
                             return false;
                         }
@@ -308,10 +306,18 @@ public class HumanPlay {
                         GameEntityViewMap<Card, CardView> gameCacheList = GameEntityView.getMap(list);
                         for (int i = 0; i < nNeeded; i++) {
                             final CardView cv;
-                            if (mandatory) {
-                                cv = SGuiChoose.one(Localizer.getInstance().getMessage("lblExileFromZone", from.getTranslatedName()), gameCacheList.getTrackableKeys());
+                            if (!multiFromZones) {
+                                if (mandatory) {
+                                    cv = SGuiChoose.one(Localizer.getInstance().getMessage("lblExileFromZone", fromZones.get(0).getTranslatedName()), gameCacheList.getTrackableKeys());
+                                } else {
+                                    cv = SGuiChoose.oneOrNone(Localizer.getInstance().getMessage("lblExileFromZone", fromZones.get(0).getTranslatedName()), gameCacheList.getTrackableKeys());
+                                }
                             } else {
-                                cv = SGuiChoose.oneOrNone(Localizer.getInstance().getMessage("lblExileFromZone", from.getTranslatedName()), gameCacheList.getTrackableKeys());
+                                if (mandatory) {
+                                    cv = SGuiChoose.one("Update this message in HumanPlay", gameCacheList.getTrackableKeys());
+                                } else {
+                                    cv = SGuiChoose.oneOrNone("Update this message in HumanPlay", gameCacheList.getTrackableKeys());
+                                }
                             }
                             if (cv == null || !gameCacheList.containsKey(cv)) {
                                 return false;
@@ -334,7 +340,7 @@ public class HumanPlay {
                 }
                 CardCollection list = CardLists.getValidCards(listView, part.getType().split(";"), p, source, sourceAbility);
 
-                if (sameZone) { // Jotun Grunt
+                if (sameZone) { // Jötun Grunt
                     FCollectionView<Player> players = p.getGame().getPlayers();
                     List<Player> payableZone = new ArrayList<>();
                     for (Player player : players) {
@@ -417,7 +423,7 @@ public class HumanPlay {
             }
             else if (part instanceof CostTapType) {
                 CardCollectionView list = CardLists.getValidCards(p.getCardsIn(ZoneType.Battlefield), part.getType(), p, source, sourceAbility);
-                list = CardLists.filter(list, Presets.UNTAPPED);
+                list = CardLists.filter(list, Presets.CAN_TAP);
                 int amount = part.getAbilityAmount(sourceAbility);
                 boolean hasPaid = payCostPart(controller, p, sourceAbility, hcd.isEffect(), (CostPartWithList)part, amount, list, Localizer.getInstance().getMessage("lblTap") + orString);
                 if (!hasPaid) { return false; }
@@ -552,9 +558,6 @@ public class HumanPlay {
                 runParams.put(AbilityKey.Cards, tapped);
                 game.getTriggerHandler().runTrigger(TriggerType.TapAll, runParams, false);
             }
-            if (manaInputCancelled) {
-                ability.clearTappedForConvoke();
-            }
         }
         if (!table.isEmpty() && !manaInputCancelled) {
             table.triggerChangesZoneAll(game, ability);
@@ -566,7 +569,7 @@ public class HumanPlay {
         final Card source = ability.getHostCard();
         ManaCostBeingPaid toPay = new ManaCostBeingPaid(realCost);
 
-        String xInCard = source.getSVar("X");
+        String xInCard = ability.getSVar("X");
         String xColor = ability.getXColor();
         if (source.hasKeyword("Spend only colored mana on X. No more than one mana of each color may be spent this way.")) {
             xColor = "WUBRGX";
